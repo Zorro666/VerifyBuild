@@ -1,0 +1,12 @@
+{
+	"Base": 
+	[
+		{	"Invalid": "**.*" },
+		{	"Valid": "Engine/*.pak" },
+		{	"Valid": "Localisation/*.pak" },
+		{	"Valid": "system.cfg" },
+		{	"Exists": "Engine/shadercache.pak" },
+		{	"Exists": "Engine/shaderstartup.pak" },
+		{	"Exists": "Engine/shaderserialize.pak" }
+	]
+}
