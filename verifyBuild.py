@@ -55,11 +55,39 @@ class Rule():
 	def __init__(self):
 		self.__m_operation = RULE_OPERATION_INVALID
 		self.__m_pattern = ""
+		self.__m_patternObj = None
 		self.__m_value = 0
 		self.__m_usesValue = False
 
+	def __ParsePattern(self, pattern):
+		pattern = pattern.strip()
+		pattern = pattern.replace("\\", "/")
+		dirPart = ""
+		filePart = ""
+		extPart = ""
+
+		tempStr = pattern
+
+		extInd = tempStr.find(".")
+		if extInd != -1:
+			extPart = tempStr[extInd+1:]
+			tempStr = tempStr[0:extInd]
+
+		filePart = tempStr
+		dirInd = tempStr.rfind("/")
+		if dirInd > 0:
+			dirPart = tempStr[0:dirInd]
+			tempStr = tempStr[dirInd+1:]
+			filePart = tempStr
+
+		print "dirPart:", dirPart
+		print "filePart:", filePart
+		print "extPart:", extPart
+		return (dirPart, filePart, extPart)
+
 	def ParseRule(self, ruleEntry):
 		self.__m_operation = RULE_OPERATION_INVALID
+		self.__m_patternObj = None
 		self.__m_pattern = ""
 		self.__m_value = 0
 		self.__m_usesValue = False
@@ -93,6 +121,8 @@ class Rule():
 
 		operation = ruleEntry[OPERATION_TAG]
 		pattern = ruleEntry[PATTERN_TAG]
+		operation = operation.strip()
+		pattern = pattern.strip()
 
 		validExtraKeys = []
 		MAX_NUM_KEYS = 2
@@ -125,10 +155,13 @@ class Rule():
 			if MINSIZEKB_TAG in keys:
 				operation = MINSIZEKB_TAG
 				value = ruleEntry[MINSIZEKB_TAG]
+				value = value.strip()
 				self.__m_usesValue = True
 
+		patternObj = self.__ParsePattern(pattern)
 		self.__m_operation = RULE_OPERATION_STRINGS[operation]
 		self.__m_pattern = pattern
+		self.__m_patternObj = patternObj
 		self.__m_value = int(value)
 
 		return True
@@ -136,9 +169,16 @@ class Rule():
 	def Print(self):
 		operation = self.__m_operation
 		pattern = self.__m_pattern
+		patternObj = self.__m_patternObj
+		dirPart = ""
+		filePart = ""
+		extPart = ""
+		if patternObj != None:
+			(dirPart, filePart, extPart) = patternObj
+
 		value = self.__m_value
 		opString = RULE_OPERATION_IDS[operation]
-		msg = "Op:'%s' Pattern:'%s'" % (opString, pattern)
+		msg = "Op:'%s' Pattern:'%s' Dir:'%s' File:'%s' Ext:'%s'" % (opString, pattern, dirPart, filePart, extPart)
 		if self.__m_usesValue:
 			msg += " Value:%d" % (value)
 		les_logger.Log(msg)
