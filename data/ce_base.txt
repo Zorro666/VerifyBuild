@@ -5,10 +5,11 @@
 		{	"Op": "Valid", "Pattern" : "Engine/*.pak" },
 		{	"Op": "Valid", "Pattern" : "Localisation/*.pak" },
 		{	"Op": "Valid", "Pattern" : "system.cfg" },
-		{	"Op": "Exists", "Pattern" : "Engine\\shadercache.pak" },
-		{	"Op": "Exists", "Pattern" : "Engine/shaderstartup.pak" },
+		{	"Op": "Exists", "Pattern" : "Engine/\\shadercache.pak" },
+		{	"Op": "Exists", "Pattern" : "Engine//shaderstartup.pak" },
 		{	"Op": "Exists", "Pattern" : "Engine/shaderserialize.pak" },
 		{	"Op": "Exists", "Pattern" : "Engine/shaderserialize.pak", "MinSizeKB" : "100" },
+		{	"Op": "Exists", "Pattern" : "gamehf2/levels/**/level.pak" },
 		{	"Op": "Valid", "Pattern": "system.cfg" }
 	]
 }
