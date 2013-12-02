@@ -3,6 +3,7 @@
 import collections
 import les_logger
 import json
+import os
 
 # JSON layout
 #{
@@ -15,7 +16,12 @@ import json
 #}
 
 # <operation> : "Valid", "Invalid", "Exists"
-# <file_pattern> : ** -means wildcard including directories e.g. recursive, **.* : means everything
+# <file_pattern> : 
+#			* - means non-recursive wildcard e.g. just matches the dirname or filename or extension
+#			** -means wildcard including directories e.g. recursive, 
+#			**.* : means everything
+#			The character after ** must be / or . - can't do **level.pak
+#
 # <optional_tag> : one of
 #		"MinSizeKB" : "<minimum_size_in_KB>"
 
@@ -60,8 +66,6 @@ class Rule():
 		self.__m_usesValue = False
 
 	def __ParsePattern(self, pattern):
-		pattern = pattern.strip()
-		pattern = pattern.replace("\\", "/")
 		dirPart = ""
 		filePart = ""
 		extPart = ""
@@ -73,16 +77,32 @@ class Rule():
 			extPart = tempStr[extInd+1:]
 			tempStr = tempStr[0:extInd]
 
-		filePart = tempStr
 		dirInd = tempStr.rfind("/")
-		if dirInd > 0:
+		if dirInd == 0:
+			filePart = tempStr
+		elif dirInd > 0:
 			dirPart = tempStr[0:dirInd]
 			tempStr = tempStr[dirInd+1:]
 			filePart = tempStr
+		else:
+			filePart = tempStr
 
-		print "dirPart:", dirPart
-		print "filePart:", filePart
-		print "extPart:", extPart
+		wildInd = filePart.rfind("**")
+		if wildInd != -1:
+			if len(dirPart) > 0:
+				dirPart += "/"
+			dirPart += "**"
+			filePart = filePart[wildInd:].replace("**", "*", 1)
+
+		if extPart.find("**") != -1:
+			les_logger.Error("Illegal extension '%s' can't contain '**'", extPart);
+			return None;
+
+		if 0:
+			les_logger.Log("dirPart: '%s'", dirPart)
+			les_logger.Log("filePart: '%s'", filePart)
+			les_logger.Log("extPart: '%s'", extPart)
+
 		return (dirPart, filePart, extPart)
 
 	def ParseRule(self, ruleEntry):
@@ -158,7 +178,17 @@ class Rule():
 				value = value.strip()
 				self.__m_usesValue = True
 
+		pattern = pattern.strip()
+		pattern = pattern.replace("\\", "/")
+		while (pattern.find("//") != -1):
+		 pattern = pattern.replace("//", "/")
+
 		patternObj = self.__ParsePattern(pattern)
+		if patternObj == None:
+			les_logger.Error("Invalid pattern found: '%s'", pattern)
+			les_logger.Error("Rule: '%s'", ruleEntry)
+			return False
+
 		self.__m_operation = RULE_OPERATION_STRINGS[operation]
 		self.__m_pattern = pattern
 		self.__m_patternObj = patternObj
@@ -213,9 +243,25 @@ class Rules():
 		return error
 
 	def Print(self):
-		print "Rules:", self.__m_name
+		les_logger.Log("Rules: '%s'", self.__m_name)
 		for rule in self.__m_rules:
 			rule.Print()
+
+def GetFileList(root):
+	filenames = []
+	for root, dirs, files in os.walk(root):
+		for name in files:
+			filename = os.path.join(root, name)
+			if filename.find("./") == 0:
+				filename = filename[2:]
+	 		filenames.append(filename)
+
+	for root, dirs, files in os.walk(root):
+		for name in dirs:
+ 			dirname = os.path.join(root, name)
+			filenames.append(GetFileList(dirname))
+
+	return filenames
 
 def Init():
 	les_logger.Init("log.txt")
@@ -227,6 +273,11 @@ def Init():
 
 	rules = Rules("data/ce_base.txt")
 	rules.Print()
+
+	files = GetFileList(".")
+	if 0:
+		for f in files:
+			les_logger.Log(f)
 
 def runMain():
 	Init()
