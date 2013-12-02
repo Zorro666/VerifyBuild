@@ -1,0 +1,6 @@
+* Validate pattern entry whilst parsing rules
+* Parse current directory tree into memory - single list of all files
+* Apply rules to list of files - need wildcard handling code to work
+* Split pattern into directory, file, extension?
+** for each component split into fixed and wildcard parts
+
