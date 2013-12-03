@@ -1,6 +1,5 @@
-* Parse current directory tree into memory - single list of all files
-* Apply rules to list of files - need wildcard handling code to work
+* exception handling code around main at least
+* Need to write pattern matching function
 ** test directory character one at a time from the pattern : * - means any char up to a /, ** - means any character to end of string (true)
-** split file-entry into directory & file & extension
 ** test file & extension first : * means any character
 
