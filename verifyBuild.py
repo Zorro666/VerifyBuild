@@ -196,7 +196,7 @@ class Rule():
 
 		return True
 
-	def Print(self):
+	def ToString(self):
 		operation = self.__m_operation
 		pattern = self.__m_pattern
 		patternObj = self.__m_patternObj
@@ -211,7 +211,13 @@ class Rule():
 		msg = "Op:'%s' Pattern:'%s' Dir:'%s' File:'%s' Ext:'%s'" % (opString, pattern, dirPart, filePart, extPart)
 		if self.__m_usesValue:
 			msg += " Value:%d" % (value)
-		les_logger.Log(msg)
+		return msg
+
+	def Print(self):
+		les_logger.Log(self.ToString())
+
+	def Validate(self, d, f, e):
+		return False
 
 class Rules():
 	def __init__(self, fileName):
@@ -219,6 +225,9 @@ class Rules():
 		self.__m_name = ""
 		self.__m_rules = []
 		self.__Load__()
+
+	def GetName(self):
+		return self.__m_name
 
 	def __Load__(self):
 		fh = open(self.__m_sourceFile, "r")
@@ -245,7 +254,22 @@ class Rules():
 	def Print(self):
 		les_logger.Log("Rules: '%s'", self.__m_name)
 		for rule in self.__m_rules:
-			rule.Print()
+			msg = rule.Print()
+			less_logger.Log(msg)
+
+		return False
+
+	def Validate(self, d, f, e):
+		for rule in self.__m_rules:
+			if rule.Validate(d, f, e) == False:
+				filename = os.path.join(d, f)
+				if len(e) > 0:
+					filename += "." + e
+				les_logger.Error("Validation Failed")
+				les_logger.Error("File:'%s'", filename)
+				les_logger.Error("Rule '%s'", rule.ToString())
+				return False
+		return True
 
 def GetFileList(root):
 	filenames = []
@@ -271,16 +295,60 @@ def Init():
 	les_logger.SetChannelOutputFileName(les_logger.CHANNEL_ERROR, "error.txt")
 	les_logger.SetChannelOutputFileName(les_logger.CHANNEL_LOG, "log.txt")
 
+def LoadRules():
+	ruleSets = []
 	rules = Rules("data/ce_base.txt")
-	rules.Print()
+	ruleSets.append(rules)
+	return ruleSets
 
-	files = GetFileList(".")
+def GetFiles():
+	fileList = GetFileList(".")
 	if 0:
-		for f in files:
+		for f in fileList:
 			les_logger.Log(f)
+	
+	files = []
+	for f in fileList:
+		(dirname, file_ext_name) = os.path.split(f)
+		extIndex = file_ext_name.rfind(".")
+		if extIndex == 0:
+			filename = ""
+			extension = file_ext_name[1:]
+		elif extIndex > 0:
+			filename = file_ext_name[0:extIndex]
+			extension = file_ext_name[extIndex+1:]
+		else:
+			filename = file_ext_name
+			extension = ""
+
+		fileEntry = (dirname, filename, extension)
+		files.append(fileEntry)
+
+	return files
+
+def Validate(files, ruleSets):
+	for (d, f, e) in files:
+		for ruleSet in ruleSets:
+			if ruleSet.Validate(d, f, e) == False:
+				les_logger.Error("Validation Failed: RuleSet: '%s'", ruleSet.GetName())
+				return False
+	return true
 
 def runMain():
 	Init()
+	rules = LoadRules()
+	files = GetFiles()
+
+	if 0:
+		for (d, f, e) in files:
+			les_logger.Log("d:'%s' f:'%s' e:'%s'", d, f, e)
+
+	if Validate(files, rules) == False:
+		return False
+
+	return True
 
 if __name__ == '__main__':
-	runMain()
+	if runMain() == False:
+		exit(-1)
+	exit(0)
