@@ -216,7 +216,15 @@ class Rule():
 	def Print(self):
 		les_logger.Log(self.ToString())
 
+	def __PatternMatch(self, d, f, e):
+		return False
+
 	def Validate(self, d, f, e):
+		matches = self.__PatternMatch(d, f, e)
+		if matches == False:
+			# Pattern doesn't match so ignore the rule operation
+			return True
+		# Pattern matches so apply the rule operation
 		return False
 
 class Rules():
@@ -332,7 +340,7 @@ def Validate(files, ruleSets):
 			if ruleSet.Validate(d, f, e) == False:
 				les_logger.Error("Validation Failed: RuleSet: '%s'", ruleSet.GetName())
 				return False
-	return true
+	return True
 
 def runMain():
 	Init()
