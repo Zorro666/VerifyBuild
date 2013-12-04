@@ -17,6 +17,7 @@ import os
 
 # <operation> : "Valid", "Invalid", "Exists"
 # <file_pattern> : 
+#			? - means match a single character
 #			* - means non-recursive wildcard e.g. just matches the dirname or filename or extension
 #			** -means wildcard including directories e.g. recursive, 
 #			**.* : means everything
@@ -56,6 +57,66 @@ RULE_OPERATION_IDS[RULE_OPERATION_INVALID] = "Invalid"
 RULE_OPERATION_IDS[RULE_OPERATION_VALID] = "Valid"
 RULE_OPERATION_IDS[RULE_OPERATION_EXISTS] = "Exists"
 RULE_OPERATION_IDS[RULE_OPERATION_MINSIZE] = "MinSizeKB"
+
+def MatchString(pattern, txt, useDirWildcard):
+	# replace ** with \ : know \ won't be in the string
+	#	? - means match a single character
+	#	* - means match any character except /
+	#	** - means match any character
+	pattern = pattern.replace("**", "\\")
+	txtInd = 0
+	txtLen = len(txt)
+	les_logger.Log("Pattern: '%s' txt:'%s'", pattern, txt)
+	matches = True
+	pInd = 0
+	pLen = len(pattern)
+	while (pInd < pLen):
+		p = pattern[pInd:pInd+1]
+		les_logger.Log("p[%d] '%s'", pInd, p)
+		if txtInd >= txtLen:
+			les_logger.Log("txtInd >= txtLen")
+			matches = False
+			break
+		c = txt[txtInd:txtInd+1]
+		les_logger.Log("txt[%d] '%s'", txtInd, c)
+		if p == '*':
+			if pInd+1 < pLen:
+				pWildInd = pattern.find("*", pInd+1)
+				if pWildInd == -1:
+					pWildInd = pLen
+
+				matchString = pattern[pInd+1:pWildInd]
+				if len(matchString) > 0:
+					matchInd = txt.find(matchString, txtInd)
+					les_logger.Log("matchString '%s' matchInd %d wildInd:%d", matchString, matchInd, pWildInd)
+ 					if matchInd	== -1:
+						matches = False
+						break
+					txtInd = matchInd + len(matchString) + 1
+					pInd = pWildInd-1
+				else:
+					wildEnd = txt.find("/", txtInd)
+					if wildEnd == -1:
+						wildEnd = txtLen - 1
+					txtInd = wildEnd + 1
+		elif p == '?':
+			matches = True
+			txtInd = txtInd + 1
+		elif c != p:
+			matches = False
+			break
+		elif c == p:
+			txtInd = txtInd + 1
+		pInd = pInd + 1
+
+	if pInd < pLen:
+		matches = False
+
+	if matches:
+		les_logger.Log("Matches")
+	else:
+		les_logger.Log("Doesn't match")
+	return matches
 
 class Rule():
 	def __init__(self):
@@ -217,7 +278,15 @@ class Rule():
 		les_logger.Log(self.ToString())
 
 	def __PatternMatch(self, d, f, e):
-		return False
+		(dirPart, filePart, extPart) = self.__m_patternObj
+		if MatchString(filePart, f, False) == False:
+		 	return False;
+		if MatchString(extPart, e, False) == False:
+		 	return False;
+		if 0:
+			if MatchString(dirPart, d, True) == False:
+			 	return False;
+		return True
 
 	def Validate(self, d, f, e):
 		matches = self.__PatternMatch(d, f, e)
@@ -273,10 +342,16 @@ class Rules():
 				filename = os.path.join(d, f)
 				if len(e) > 0:
 					filename += "." + e
-				les_logger.Error("Validation Failed")
-				les_logger.Error("File:'%s'", filename)
-				les_logger.Error("Rule '%s'", rule.ToString())
-				return False
+				if 0:
+					les_logger.Error("Validation Failed")
+					les_logger.Error("File:'%s'", filename)
+					les_logger.Error("Rule '%s'", rule.ToString())
+				#return False
+			else:
+				if 0:
+					les_logger.Log("Validation Passed")
+					les_logger.Log("File:'%s'", filename)
+					les_logger.Log("Rule '%s'", rule.ToString())
 		return True
 
 def GetFileList(root):
@@ -351,9 +426,15 @@ def runMain():
 		for (d, f, e) in files:
 			les_logger.Log("d:'%s' f:'%s' e:'%s'", d, f, e)
 
-	if Validate(files, rules) == False:
-		return False
+	if 0:
+		if Validate(files, rules) == False:
+			return False
 
+	MatchString("T*DOT*", "TODO", False)
+	MatchString("T*DO*", "TODO", False)
+	MatchString("T*DO", "TODO", False)
+	MatchString("T*DOT*", "TODODOT", False)
+	MatchString("T*DOT", "TODODOT", False)
 	return True
 
 if __name__ == '__main__':
