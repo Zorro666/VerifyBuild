@@ -10,6 +10,7 @@
 		{	"Op": "Exists", "Pattern" : "Engine/shaderserialize.pak" },
 		{	"Op": "Exists", "Pattern" : "Engine/shaderserialize.pak", "MinSizeKB" : "100" },
 		{	"Op": "Exists", "Pattern" : "gamehf2/levels/**/level.pak" },
+		{	"Op": "Exists", "Pattern" : "TODO" },
 		{	"Op": "Valid", "Pattern": "system.cfg" }
 	]
 }
