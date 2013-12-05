@@ -58,7 +58,9 @@ RULE_OPERATION_IDS[RULE_OPERATION_VALID] = "Valid"
 RULE_OPERATION_IDS[RULE_OPERATION_EXISTS] = "Exists"
 RULE_OPERATION_IDS[RULE_OPERATION_MINSIZE] = "MinSizeKB"
 
-def MatchString(pattern, txt, useDirWildcard):
+def MatchString(pattern, txt, isDir):
+	debug = False
+
 	# replace ** with \ : know \ won't be in the string
 	#	? - means match a single character
 	#	* - means match any character except /
@@ -66,19 +68,19 @@ def MatchString(pattern, txt, useDirWildcard):
 	pattern = pattern.replace("**", "\\")
 	txtInd = 0
 	txtLen = len(txt)
-	les_logger.Log("Pattern: '%s' txt:'%s'", pattern, txt)
+	if debug: les_logger.Log("Pattern: '%s' txt:'%s'", pattern, txt)
 	matches = True
 	pInd = 0
 	pLen = len(pattern)
 	while (pInd < pLen):
 		p = pattern[pInd:pInd+1]
-		les_logger.Log("p[%d] '%s'", pInd, p)
+		if debug: les_logger.Log("p[%d] '%s'", pInd, p)
 		if txtInd >= txtLen:
-			les_logger.Log("txtInd >= txtLen")
+			if debug: les_logger.Log("txtInd >= txtLen")
 			matches = False
 			break
 		c = txt[txtInd:txtInd+1]
-		les_logger.Log("txt[%d] '%s'", txtInd, c)
+		if debug: les_logger.Log("txt[%d] '%s'", txtInd, c)
 		if p == '*':
 			if pInd+1 < pLen:
 				pWildInd = pattern.find("*", pInd+1)
@@ -88,17 +90,19 @@ def MatchString(pattern, txt, useDirWildcard):
 				matchString = pattern[pInd+1:pWildInd]
 				if len(matchString) > 0:
 					matchInd = txt.find(matchString, txtInd)
-					les_logger.Log("matchString '%s' matchInd %d wildInd:%d", matchString, matchInd, pWildInd)
+					if debug: les_logger.Log("matchString '%s' matchInd %d wildInd:%d", matchString, matchInd, pWildInd)
  					if matchInd	== -1:
 						matches = False
 						break
-					txtInd = matchInd + len(matchString) + 1
+					txtInd = matchInd + len(matchString)
 					pInd = pWildInd-1
-				else:
+				elif isDir:
 					wildEnd = txt.find("/", txtInd)
 					if wildEnd == -1:
 						wildEnd = txtLen - 1
 					txtInd = wildEnd + 1
+				else:
+					txtInd = txtLen
 		elif p == '?':
 			matches = True
 			txtInd = txtInd + 1
@@ -112,10 +116,15 @@ def MatchString(pattern, txt, useDirWildcard):
 	if pInd < pLen:
 		matches = False
 
-	if matches:
-		les_logger.Log("Matches")
-	else:
-		les_logger.Log("Doesn't match")
+	if txtInd < txtLen:
+		matches = False
+
+	if debug:
+		if matches:
+			les_logger.Log("Matches")
+		else:
+			les_logger.Log("Doesn't match")
+
 	return matches
 
 class Rule():
@@ -419,6 +428,11 @@ def Validate(files, ruleSets):
 
 def runMain():
 	Init()
+
+	if MatchStringTests() == False:
+		les_logger.Error("MatchStringTests Failed")
+		return False
+
 	rules = LoadRules()
 	files = GetFiles()
 
@@ -430,11 +444,33 @@ def runMain():
 		if Validate(files, rules) == False:
 			return False
 
-	MatchString("T*DOT*", "TODO", False)
-	MatchString("T*DO*", "TODO", False)
-	MatchString("T*DO", "TODO", False)
-	MatchString("T*DOT*", "TODODOT", False)
-	MatchString("T*DOT", "TODODOT", False)
+	return True
+
+def MatchStringTests():
+	tests = [
+			(False, "T*DOT*", "TODO", False),
+			(False, "T*DO*", "TODO", False),
+			(True, "T*DO", "TODO", False),
+			(False, "T*DOT*", "TODODOT", False),
+			(True, "T*DOT", "TODODOT", False),
+			(True, "J*_*AT", "JAKE_CAT", False),
+			(False, "T*D", "TODO", False),
+			(False, "J*_*A", "JAKE_CAT", False)
+		]
+	numFailed = 0
+	numTests = len(tests)
+
+	for test in tests:
+		(result, pattern, txt, isDir) = test
+		if MatchString(pattern, txt, isDir) != result:
+			les_logger.Error("MatchString Test Failed expected result:'%s' pattern:'%s' txt:'%s' isDir:'%s'", result, pattern, txt, isDir)
+			numFailed = numFailed + 1
+
+	numPassed = numTests - numFailed
+	if numFailed > 0:
+			les_logger.Error("MatchString Tests Failed Failed:%d Passed:%d Total:%d", numFailed, numPassed, numTests)
+			return False
+
 	return True
 
 if __name__ == '__main__':
