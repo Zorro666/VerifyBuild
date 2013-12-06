@@ -1,5 +1,3 @@
 * exception handling code around main at least
-* Need to write pattern matching function
-** test directory character one at a time from the pattern : * - means any char up to a /, ** - means any character to end of string (true)
-** test file & extension first : * means any character
+* Need to write rule operation validate code when a pattern matches
 
