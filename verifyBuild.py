@@ -4,6 +4,7 @@ import collections
 import les_logger
 import json
 import os
+import re
 
 # JSON layout
 #{
@@ -58,6 +59,29 @@ RULE_OPERATION_IDS[RULE_OPERATION_VALID] = "Valid"
 RULE_OPERATION_IDS[RULE_OPERATION_EXISTS] = "Exists"
 RULE_OPERATION_IDS[RULE_OPERATION_MINSIZE] = "MinSizeKB"
 
+def ConvertToRegexp(pattern):
+	pInd = 0
+	pLen = len(pattern)
+ 	result = ''
+	validWildChars = "A-Za-z0-9\.$_\-"
+	validWildDirChars = "/"
+	wildCharsRE = "[" + validWildChars + "]+"
+	wildDirCharsRE = "[" + validWildChars + validWildDirChars + "]+"
+ 	while pInd < pLen:
+		c = pattern[pInd]
+		pInd = pInd + 1
+		if c == "*":
+			result = result + wildCharsRE
+ 		elif c == "\\":
+			result = result + wildDirCharsRE
+ 		elif c == "?":
+			result = result + "."
+		else:
+			result = result + re.escape(c)
+	result = result + "\Z"
+	if 0: print result
+	return re.compile(result)
+
 def MatchString(pattern, txt, isDir):
 	debug = False
 
@@ -66,66 +90,81 @@ def MatchString(pattern, txt, isDir):
 	#	* - means match any character except /
 	#	** - means match any character
 	pattern = pattern.replace("**", "\\")
-	txtInd = 0
-	txtLen = len(txt)
 	if debug: les_logger.Log("Pattern: '%s' txt:'%s'", pattern, txt)
-	matches = True
-	pInd = 0
-	pLen = len(pattern)
-	while (pInd < pLen):
-		p = pattern[pInd:pInd+1]
-		if debug: les_logger.Log("p[%d] '%s'", pInd, p)
-		if txtInd >= txtLen:
-			if debug: les_logger.Log("txtInd >= txtLen")
-			matches = False
-			break
-		c = txt[txtInd:txtInd+1]
-		if debug: les_logger.Log("txt[%d] '%s'", txtInd, c)
-		if p == '*':
-			if pInd+1 < pLen:
-				pWildInd = pattern.find("*", pInd+1)
-				if pWildInd == -1:
-					pWildInd = pLen
 
-				matchString = pattern[pInd+1:pWildInd]
-				if len(matchString) > 0:
-					matchInd = txt.find(matchString, txtInd)
-					if debug: les_logger.Log("matchString '%s' matchInd %d wildInd:%d", matchString, matchInd, pWildInd)
- 					if matchInd	== -1:
-						matches = False
-						break
-					txtInd = matchInd + len(matchString)
-					pInd = pWildInd-1
-				elif isDir:
-					wildEnd = txt.find("/", txtInd)
-					if wildEnd == -1:
-						wildEnd = txtLen - 1
-					txtInd = wildEnd + 1
-				else:
-					txtInd = txtLen
-		elif p == '?':
-			matches = True
-			txtInd = txtInd + 1
-		elif c != p:
-			matches = False
-			break
-		elif c == p:
-			txtInd = txtInd + 1
-		pInd = pInd + 1
-
-	if pInd < pLen:
-		matches = False
-
-	if txtInd < txtLen:
-		matches = False
-
-	if debug:
-		if matches:
-			les_logger.Log("Matches")
-		else:
-			les_logger.Log("Doesn't match")
-
+	regexp = ConvertToRegexp(pattern)
+	matches = regexp.match(txt) is not None
 	return matches
+
+#def MatchString(pattern, txt, isDir):
+#	debug = False
+#
+#	# replace ** with \ : know \ won't be in the string
+#	#	? - means match a single character
+#	#	* - means match any character except /
+#	#	** - means match any character
+#	pattern = pattern.replace("**", "\\")
+#	if debug: les_logger.Log("Pattern: '%s' txt:'%s'", pattern, txt)
+#
+#	txtInd = 0
+#	txtLen = len(txt)
+#	matches = True
+#	pInd = 0
+#	pLen = len(pattern)
+#	while (pInd < pLen):
+#		p = pattern[pInd:pInd+1]
+#		if debug: les_logger.Log("p[%d] '%s'", pInd, p)
+#		if txtInd >= txtLen:
+#			if debug: les_logger.Log("txtInd >= txtLen")
+#			matches = False
+#			break
+#		c = txt[txtInd:txtInd+1]
+#		if debug: les_logger.Log("txt[%d] '%s'", txtInd, c)
+#		if p == '*':
+#			if pInd+1 < pLen:
+#				pWildInd = pattern.find("*", pInd+1)
+#				if pWildInd == -1:
+#					pWildInd = pLen
+#
+#				matchString = pattern[pInd+1:pWildInd]
+#				if len(matchString) > 0:
+#					matchInd = txt.find(matchString, txtInd)
+#					if debug: les_logger.Log("matchString '%s' matchInd %d wildInd:%d", matchString, matchInd, pWildInd)
+# 					if matchInd	== -1:
+#						matches = False
+#						break
+#					txtInd = matchInd + len(matchString)
+#					pInd = pWildInd-1
+#				elif isDir:
+#					wildEnd = txt.find("/", txtInd)
+#					if wildEnd == -1:
+#						wildEnd = txtLen - 1
+#					txtInd = wildEnd + 1
+#				else:
+#					txtInd = txtLen
+#		elif p == '?':
+#			matches = True
+#			txtInd = txtInd + 1
+#		elif c != p:
+#			matches = False
+#			break
+#		elif c == p:
+#			txtInd = txtInd + 1
+#		pInd = pInd + 1
+#
+#	if pInd < pLen:
+#		matches = False
+#
+#	if txtInd < txtLen:
+#		matches = False
+#
+#	if debug:
+#		if matches:
+#			les_logger.Log("Matches")
+#		else:
+#			les_logger.Log("Doesn't match")
+#
+#	return matches
 
 class Rule():
 	def __init__(self):
@@ -292,9 +331,8 @@ class Rule():
 		 	return False;
 		if MatchString(extPart, e, False) == False:
 		 	return False;
-		if 0:
-			if MatchString(dirPart, d, True) == False:
-			 	return False;
+		if MatchString(dirPart, d, True) == False:
+		 	return False;
 		return True
 
 	def Validate(self, d, f, e):
@@ -347,11 +385,11 @@ class Rules():
 
 	def Validate(self, d, f, e):
 		for rule in self.__m_rules:
+			filename = os.path.join(d, f)
 			if rule.Validate(d, f, e) == False:
-				filename = os.path.join(d, f)
 				if len(e) > 0:
 					filename += "." + e
-				if 0:
+				if 1:
 					les_logger.Error("Validation Failed")
 					les_logger.Error("File:'%s'", filename)
 					les_logger.Error("Rule '%s'", rule.ToString())
@@ -440,7 +478,7 @@ def runMain():
 		for (d, f, e) in files:
 			les_logger.Log("d:'%s' f:'%s' e:'%s'", d, f, e)
 
-	if 0:
+	if 1:
 		if Validate(files, rules) == False:
 			return False
 
@@ -455,7 +493,13 @@ def MatchStringTests():
 			(True, "T*DOT", "TODODOT", False),
 			(True, "J*_*AT", "JAKE_CAT", False),
 			(False, "T*D", "TODO", False),
-			(False, "J*_*A", "JAKE_CAT", False)
+			(False, "J*_*A", "JAKE_CAT", False),
+			(False, "J*_*", "J/AKE_CAT", True),
+			(False, "*", "J/AKE_CAT", True),
+			(True, "**", "J/AKE_CAT", True),
+			(True, "game/**", "game/levels/jake", True),
+			(False, "game/*", "game/levels/jake", True),
+			(True, "game/levels/*", "game/levels/jake", True)
 		]
 	numFailed = 0
 	numTests = len(tests)
@@ -470,6 +514,8 @@ def MatchStringTests():
 	if numFailed > 0:
 			les_logger.Error("MatchString Tests Failed Failed:%d Passed:%d Total:%d", numFailed, numPassed, numTests)
 			return False
+	if numFailed == 0:
+			les_logger.Log("MatchString Tests Passed Total:%d", numTests)
 
 	return True
 
