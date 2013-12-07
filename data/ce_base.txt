@@ -10,7 +10,13 @@
 		{	"Op": "Exists", "Pattern" : "Engine/shaderserialize.pak" },
 		{	"Op": "Exists", "Pattern" : "Engine/shaderserialize.pak", "MinSizeKB" : "100" },
 		{	"Op": "Exists", "Pattern" : "gamehf2/levels/**/level.pak" },
+		{	"Op": "Valid", "Pattern" : "system.cfg" },
 		{	"Op": "Exists", "Pattern" : "TODO" },
-		{	"Op": "Valid", "Pattern": "system.cfg" }
+		{	"Op": "Valid", "Pattern" : "*.txt" },
+		{	"Op": "Valid", "Pattern" : "**.swp" },
+		{	"Op": "Valid", "Pattern" : "*.py" },
+		{	"Op": "Valid", "Pattern" : "*.pyc" },
+		{	"Op": "Valid", "Pattern" : ".git/**.*" },
+		{	"Op": "Valid", "Pattern" : "data/**.*" }
 	]
 }
