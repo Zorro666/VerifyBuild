@@ -1,3 +1,5 @@
-* exception handling code around main at least
-* Need to write rule operation validate code when a pattern matches
+* exception handling code around main
+* compile the RE pattern matching on loading of the rules and reuse
+* exception handling code for file operations when doing validation of the operations
+* test on a proper directory layout
 
