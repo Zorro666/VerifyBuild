@@ -6,37 +6,40 @@ import json
 import os
 import re
 
-# JSON layout
-#{
-#	"Base": 
-#	[
-# 	{ "Op" : "<operation>", "Pattern" : "<file_pattern>" },
-# 	{ "Op" : "<operation>", "Pattern" : "<file_pattern>" },
-# 	{ "Op" : "<operation>", "Pattern" : "<file_pattern>", "<optional_tag>" : "<value>" }
-#	]
-#}
+"""
+JSON layout
+{
+	"Base": 
+	[
+ 	{ "Op" : "<operation>", "Pattern" : "<file_pattern>" },
+ 	{ "Op" : "<operation>", "Pattern" : "<file_pattern>" },
+ 	{ "Op" : "<operation>", "Pattern" : "<file_pattern>", "<optional_tag>" : "<value>" }
+	]
+}
 
-# <operation> : "Valid", "Invalid", "Exists"
-# <file_pattern> : 
-#			? - means match a single character
-#			* - means non-recursive wildcard e.g. just matches the dirname or filename or extension
-#			** -means wildcard including directories e.g. recursive, 
-#			**.* : means everything
-#			The character after ** must be / or . - can't do **level.pak
-#
-# <optional_tag> : one of
-#		"MinSizeKB" : "<minimum_size_in_KB>"
+<operation> : "Valid", "Invalid", "Exists"
 
-# JSON layout
-#{
-#	"Base": 
-#	[
-#		{	"Op": "Invalid", "Pattern" : "<file_pattern>"  },
-#		{	"Op": "Valid", "Pattern" : "<file_pattern>" },
-#		{	"Op": "Exists", "Pattern" : "<file_pattern>", "MinSizeKB" : "<minimum_size_in_KB>" },
-#		{	"Op": "Exists", "Pattern" : "<file_pattern>" } # implies MinSizeKB = 0
-#	]
-#}
+<file_pattern> : 
+	? - means match a single character
+	* - means non-recursive wildcard e.g. just matches the dirname or filename or extension
+	** -means wildcard including directories e.g. recursive
+	**.* : means everything
+	The character after ** must be / or . - can't do **level.pak
+
+<optional_tag> : one of
+	"MinSizeKB" : "<minimum_size_in_KB>"
+
+JSON layout
+{
+	"Base": 
+	[
+		{	"Op": "Invalid", "Pattern" : "<file_pattern>"  },
+		{	"Op": "Valid", "Pattern" : "<file_pattern>" },
+		{	"Op": "Exists", "Pattern" : "<file_pattern>", "MinSizeKB" : "<minimum_size_in_KB>" },
+		{	"Op": "Exists", "Pattern" : "<file_pattern>" } # implies MinSizeKB = 0
+	]
+}
+"""
 
 RULE_OPERATION_UNKNOWN = 0
 RULE_OPERATION_INVALID = 1
@@ -58,6 +61,10 @@ RULE_OPERATION_IDS[RULE_OPERATION_INVALID] = "Invalid"
 RULE_OPERATION_IDS[RULE_OPERATION_VALID] = "Valid"
 RULE_OPERATION_IDS[RULE_OPERATION_EXISTS] = "Exists"
 RULE_OPERATION_IDS[RULE_OPERATION_MINSIZE] = "MinSizeKB"
+
+VALIDATE_IGNORE = 0
+VALIDATE_FAILED = 1
+VALIDATE_PASSED = 2
 
 def ConvertToRegexp(pattern):
 	pInd = 0
@@ -335,13 +342,42 @@ class Rule():
 		 	return False;
 		return True
 
-	def Validate(self, d, f, e):
+	def Validate(self, filename, d, f, e):
 		matches = self.__PatternMatch(d, f, e)
 		if matches == False:
 			# Pattern doesn't match so ignore the rule operation
-			return True
+			return VALIDATE_IGNORE
+
 		# Pattern matches so apply the rule operation
-		return False
+		op = self.__m_operation
+
+		# Simple patterns which are just name matching
+		if op == RULE_OPERATION_INVALID:
+			return VALIDATE_FAILED
+		elif op == RULE_OPERATION_VALID:
+			return VALIDATE_PASSED
+
+		# Actual file operations e.g. the file must be present
+		if os.path.isfile(filename) == False:
+			return VALIDTE_FAILED
+		if os.path.exists(filename) == False:
+			return VALIDTE_FAILED
+		fileSize = os.path.getsize(filename)
+		if fileSize < 0:
+			return VALIDATE_FAILED
+
+		if op == RULE_OPERATION_EXISTS:
+			return VALIDATE_PASSED
+		elif op == RULE_OPERATION_MINSIZE:
+			minSizeBytes = self.__m_value * 1024
+			if fileSize < minSizeBytes:
+				return VALIDATE_FAILED
+			else:
+				return VALIDATE_PASSED
+
+		# Unknown operation
+		les_logger.Error("Unknown operation:%d", op)
+		return VALIDATE_FAILED
 
 class Rules():
 	def __init__(self, fileName):
@@ -384,21 +420,37 @@ class Rules():
 		return False
 
 	def Validate(self, d, f, e):
+		finalValidateResult = VALIDATE_IGNORE
+		failedRule = None
 		for rule in self.__m_rules:
 			filename = os.path.join(d, f)
-			if rule.Validate(d, f, e) == False:
-				if len(e) > 0:
-					filename += "." + e
-				if 1:
+			if len(e) > 0:
+				filename += "." + e
+			validateResult = rule.Validate(filename, d, f, e) 
+			if validateResult == VALIDATE_FAILED:
+				if 0:
 					les_logger.Error("Validation Failed")
 					les_logger.Error("File:'%s'", filename)
 					les_logger.Error("Rule '%s'", rule.ToString())
-				#return False
-			else:
+				finalValidateResult = VALIDATE_FAILED
+				failedRule = rule.ToString()
+			elif validateResult == VALIDATE_PASSED:
 				if 0:
 					les_logger.Log("Validation Passed")
 					les_logger.Log("File:'%s'", filename)
 					les_logger.Log("Rule '%s'", rule.ToString())
+				finalValidateResult = VALIDATE_PASSED
+
+		if finalValidateResult == VALIDATE_FAILED:
+			if 1:
+				les_logger.Error("Validation Failed")
+				les_logger.Error("Rule '%s'", failedRule)
+				les_logger.Error("File:'%s'", filename)
+			return False
+		elif finalValidateResult == VALIDATE_PASSED:
+			if 1:
+				les_logger.Log("Validation Passed")
+				les_logger.Log("File:'%s'", filename)
 		return True
 
 def GetFileList(root):
