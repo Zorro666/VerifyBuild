@@ -22,7 +22,7 @@ JSON layout
 <file_pattern> : 
 	? - means match a single character
 	* - means non-recursive wildcard e.g. just matches the dirname or filename or extension
-	** -means wildcard including directories e.g. recursive
+	** -means wildcard including directories e.g. recursive and might mean an empty dir (effectively ./)
 	**.* : means everything
 	The character after ** must be / or . - can't do **level.pak
 
@@ -73,7 +73,7 @@ def ConvertToRegexp(pattern):
 	validWildChars = "A-Za-z0-9\.$_\-"
 	validWildDirChars = "/"
 	wildCharsRE = "[" + validWildChars + "]+"
-	wildDirCharsRE = "[" + validWildChars + validWildDirChars + "]+"
+	wildDirCharsRE = "[" + validWildChars + validWildDirChars + "]*"
  	while pInd < pLen:
 		c = pattern[pInd]
 		pInd = pInd + 1
@@ -86,7 +86,7 @@ def ConvertToRegexp(pattern):
 		else:
 			result = result + re.escape(c)
 	result = result + "\Z"
-	if 0: print result
+	if 0: print "RE:", result
 	return re.compile(result)
 
 def MatchString(pattern, txt, isDir):
@@ -188,18 +188,15 @@ class Rule():
 
 		tempStr = pattern
 
+		dirInd = tempStr.rfind("/")
+		if dirInd > 0:
+			dirPart = tempStr[0:dirInd]
+			tempStr = tempStr[dirInd+1:]
+
 		extInd = tempStr.find(".")
 		if extInd != -1:
 			extPart = tempStr[extInd+1:]
-			tempStr = tempStr[0:extInd]
-
-		dirInd = tempStr.rfind("/")
-		if dirInd == 0:
-			filePart = tempStr
-		elif dirInd > 0:
-			dirPart = tempStr[0:dirInd]
-			tempStr = tempStr[dirInd+1:]
-			filePart = tempStr
+			filePart = tempStr[0:extInd]
 		else:
 			filePart = tempStr
 
@@ -414,8 +411,8 @@ class Rules():
 	def Print(self):
 		les_logger.Log("Rules: '%s'", self.__m_name)
 		for rule in self.__m_rules:
-			msg = rule.Print()
-			less_logger.Log(msg)
+			msg = rule.ToString()
+			les_logger.Log(msg)
 
 		return False
 
@@ -445,10 +442,10 @@ class Rules():
 			if 1:
 				les_logger.Error("Validation Failed")
 				les_logger.Error("Rule '%s'", failedRule)
-				les_logger.Error("File:'%s'", filename)
+				les_logger.Error("File:'%s' D:'%s' F:'%s' E:'%s'", filename, d, f, e)
 			return False
 		elif finalValidateResult == VALIDATE_PASSED:
-			if 1:
+			if 0:
 				les_logger.Log("Validation Passed")
 				les_logger.Log("File:'%s'", filename)
 		return True
@@ -503,18 +500,22 @@ def GetFiles():
 			filename = file_ext_name
 			extension = ""
 
+		if not dirname.endswith("/"):
+			if len(dirname) > 0:
+				dirname = dirname + "/"
 		fileEntry = (dirname, filename, extension)
 		files.append(fileEntry)
 
 	return files
 
 def Validate(files, ruleSets):
+	validateResult = True
 	for (d, f, e) in files:
 		for ruleSet in ruleSets:
 			if ruleSet.Validate(d, f, e) == False:
 				les_logger.Error("Validation Failed: RuleSet: '%s'", ruleSet.GetName())
-				return False
-	return True
+				validateResult = False
+	return validateResult
 
 def runMain():
 	Init()
@@ -532,6 +533,8 @@ def runMain():
 
 	if 1:
 		if Validate(files, rules) == False:
+			for ruleSet in rules:
+				ruleSet.Print()
 			return False
 
 	return True
@@ -551,7 +554,12 @@ def MatchStringTests():
 			(True, "**", "J/AKE_CAT", True),
 			(True, "game/**", "game/levels/jake", True),
 			(False, "game/*", "game/levels/jake", True),
-			(True, "game/levels/*", "game/levels/jake", True)
+			(True, "game/levels/*", "game/levels/jake", True),
+			(True, ".git/**.*", ".git/gitk.cache", True),
+			(True, "data/**.*", "data/ce_base.txt", True),
+			(True, "data/**", "data/", True),
+			(True, "*", "ce_base", True),
+			(True, "*", "txt", True)
 		]
 	numFailed = 0
 	numTests = len(tests)
